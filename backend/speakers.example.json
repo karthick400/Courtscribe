@@ -1,0 +1,11 @@
+{
+  "speakers": [
+    { "id": "judge-1", "role": "Judge", "name": "" },
+    { "id": "judge-2", "role": "Judge", "name": "" },
+    { "id": "complainant-counsel-1", "role": "Complainant's Counsel", "name": "" },
+    { "id": "defendant-counsel-1", "role": "Defendant's Counsel", "name": "" },
+    { "id": "witness-1", "role": "Witness", "name": "" },
+    { "id": "witness-2", "role": "Witness", "name": "" },
+    { "id": "accused-1", "role": "Accused", "name": "" }
+  ]
+}

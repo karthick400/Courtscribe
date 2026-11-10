@@ -1,0 +1,1679 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CourtScribe — Official Court Transcription System</title>
+  <style>
+    /* ═══════════════════════════════════════════
+       DESIGN TOKENS — WHITE & LIGHT GREEN THEME
+    ═══════════════════════════════════════════ */
+    :root {
+      --gov-navy:     #2F6F4E;
+      --gov-navy-lt:  #3E805E;
+      --gov-navy-xlt: #46ab70;
+      --gov-saffron:  #5A9A75;
+      --gov-gold:     #358551;
+      --gov-green:    #2F7D52;
+      --gov-crimson:  #0a0505;
+      --bg:           #F3FAF5;
+      --bg-alt:       #E8F4EC;
+      --surface:      #FFFFFF;
+      --surface-2:    #F7FCF8;
+      --border:       #C6DFCE;
+      --border-dark:  #8FBA9E;
+      --text:         #173524;
+      --text-mid:     #3D5D4A;
+      --text-muted:   #668472;
+      --shadow-sm:    0 1px 3px rgba(47,111,78,.10), 0 1px 2px rgba(47,111,78,.06);
+      --shadow-md:    0 4px 16px rgba(47,111,78,.12), 0 2px 6px rgba(47,111,78,.08);
+      --shadow-lg:    0 8px 32px rgba(47,111,78,.14), 0 4px 12px rgba(47,111,78,.08);
+      --radius:       6px;
+      --radius-lg:    10px;
+    }
+
+    /* ═══════════════ RESET & BASE ═══════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font: 15px/1.6 'Segoe UI', system-ui, -apple-system, sans-serif;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ═══════════════ TRICOLOR STRIPE ═══════════════ */
+    .tricolor-bar {
+      display: flex;
+      height: 5px;
+      flex-shrink: 0;
+    }
+    .tricolor-bar span:nth-child(1) { flex: 1; background: #8BBF9D; }
+    .tricolor-bar span:nth-child(2) { flex: 1; background: #FFFFFF; border-top: 1px solid #D9EADF; border-bottom: 1px solid #D9EADF; }
+    .tricolor-bar span:nth-child(3) { flex: 1; background: #5A9A75; }
+
+    /* ═══════════════ SITE HEADER ═══════════════ */
+    .site-header {
+      background: var(--gov-navy);
+      color: white;
+      padding: 0;
+      box-shadow: var(--shadow-lg);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 14px 32px;
+      border-bottom: 1px solid #56866B;
+    }
+
+    .gov-emblem {
+      width: 64px;
+      height: 64px;
+      flex-shrink: 0;
+      background: #56866B;
+      border: 2px solid #A8CBB4;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      line-height: 1;
+    }
+
+    .header-identity { flex: 1; }
+
+    .gov-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: #D7E9DC;
+      margin-bottom: 2px;
+    }
+
+    .site-title {
+      font-size: clamp(1.3rem, 3vw, 1.75rem);
+      font-weight: 700;
+      letter-spacing: -.01em;
+      line-height: 1.1;
+      color: #fff;
+    }
+
+    .site-subtitle {
+      font-size: 12px;
+      color: #C5DFCD;
+      margin-top: 2px;
+      font-style: italic;
+    }
+
+    .header-status-bar {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      padding: 7px 32px;
+      background: #25583D;
+      font-size: 12px;
+      color: #D7E9DC;
+    }
+
+    .hstatus-item { display: flex; align-items: center; gap: 6px; }
+
+    .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #aaa;
+      flex-shrink: 0;
+    }
+    .dot.online  { background: #74D69A; box-shadow: 0 0 0 2px #B0E8C3; }
+    .dot.warning { background: #facc15; }
+    .dot.error   { background: #f87171; }
+
+    .header-clock { margin-left: auto; font-variant-numeric: tabular-nums; }
+
+    /* ═══════════════ LAYOUT SHELL ═══════════════ */
+    .app-layout {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      grid-template-rows: 1fr;
+      gap: 0;
+      flex: 1;
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 24px 24px 32px;
+      gap: 20px;
+    }
+
+    /* ═══════════════ LEFT SIDEBAR ═══════════════ */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ═══════════════ MAIN CONTENT ═══════════════ */
+    .main-content {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    /* ═══════════════ CARDS / PANELS ═══════════════ */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 18px;
+      background: var(--gov-navy);
+      color: white;
+    }
+
+    .card-header-icon {
+      width: 28px; height: 28px;
+      border-radius: 6px;
+      background: #56866B;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .ui-icon {
+      width: 1em;
+      height: 1em;
+      display: inline-block;
+      vertical-align: -.15em;
+      fill: none;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 1.8;
+    }
+    .gov-emblem .ui-icon { width: 36px; height: 36px; }
+    .transcript-empty-icon .ui-icon { width: 48px; height: 48px; }
+
+    .card-header h2 {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      flex: 1;
+    }
+
+    .card-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: #56866B;
+      letter-spacing: .06em;
+    }
+
+    .card-body { padding: 18px; }
+
+    /* ═══════════════ SECTION DIVIDER ═══════════════ */
+    .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding: 6px 0 8px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 12px;
+    }
+
+    /* ═══════════════ FORM ELEMENTS ═══════════════ */
+    label.field-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      color: var(--text-mid);
+      margin-bottom: 5px;
+    }
+
+    input[type="text"],
+    textarea,
+    select {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      font: inherit;
+      font-size: 14px;
+      transition: border-color .15s, box-shadow .15s;
+      appearance: none;
+    }
+
+    select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236B7599' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+      cursor: pointer;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: var(--gov-navy);
+      box-shadow: 0 0 0 3px rgba(47,111,78,.16);
+    }
+
+    textarea { resize: vertical; min-height: 44px; }
+
+    .field-group { margin-bottom: 14px; }
+    .field-group:last-child { margin-bottom: 0; }
+
+    .input-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: end;
+    }
+
+    /* ═══════════════ BUTTONS ═══════════════ */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 9px 16px;
+      border: 0;
+      border-radius: var(--radius);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all .15s;
+      letter-spacing: .02em;
+      min-height: 40px;
+    }
+
+    .btn:disabled { cursor: not-allowed; }
+
+    .btn-primary {
+      background: var(--gov-navy);
+      color: white;
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--gov-navy-xlt); }
+
+    .btn-saffron {
+      background: var(--gov-saffron);
+      color: white;
+    }
+    .btn-saffron:hover:not(:disabled) { background: #e55500; }
+
+    .btn-ghost {
+      background: var(--surface-2);
+      color: var(--text-mid);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover:not(:disabled) { background: var(--bg-alt); border-color: var(--border-dark); }
+
+    .btn-danger {
+      background: var(--gov-crimson);
+      color: white;
+    }
+    .btn-danger:hover:not(:disabled) { background: #9b1c1c; }
+
+    .btn-green {
+      background: var(--gov-green);
+      color: white;
+    }
+    .btn-green:hover:not(:disabled) { background: #0a5c26; }
+
+    .btn-sm { padding: 6px 12px; font-size: 12px; min-height: 32px; }
+    .btn-lg { padding: 12px 24px; font-size: 15px; min-height: 50px; }
+    .btn-full { width: 100%; }
+
+    .btn-icon { font-size: 16px; }
+
+    /* ═══════════════ RECORD BUTTON ═══════════════ */
+    .record-zone {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 20px;
+      background: var(--surface-2);
+      border-radius: var(--radius-lg);
+      border: 2px dashed var(--border);
+      transition: all .2s;
+    }
+
+    .record-zone.active-session {
+      border-color: var(--gov-navy);
+      background: #E8F4EC;
+    }
+
+    .record-zone.is-recording {
+      border-color: var(--gov-crimson);
+      background: #FFF0F0;
+    }
+
+    .record-btn-wrap { position: relative; }
+
+    .record-main-btn {
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      border: 0;
+      background: var(--gov-navy);
+      color: white;
+      font-size: 32px;
+      cursor: pointer;
+      transition: all .2s;
+      box-shadow: var(--shadow-md);
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    .record-main-btn:disabled { cursor: not-allowed; }
+
+    .record-main-btn.speaking {
+      background: var(--gov-crimson);
+      box-shadow: 0 0 0 4px #F2B7B7;
+    }
+
+    .record-hint {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+      font-weight: 600;
+      letter-spacing: .03em;
+    }
+
+    /* ═══════════════ SPEAKER CHIPS ═══════════════ */
+    .speaker-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 10px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      border: 2px solid transparent;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .15s;
+      background: var(--surface-2);
+      color: var(--text-mid);
+      border-color: var(--border);
+    }
+
+    .chip:hover { border-color: var(--gov-navy); color: var(--gov-navy); }
+
+    .chip.active {
+      background: var(--gov-navy);
+      color: white;
+      border-color: var(--gov-navy);
+    }
+
+    .chip.chip-all.active {
+      background: var(--text);
+      border-color: var(--text);
+    }
+
+    .chip-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* ═══════════════ STATUS BAR ═══════════════ */
+    .status-strip {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-weight: 600;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      margin-top: 10px;
+      min-height: 42px;
+    }
+
+    .status-strip .dot { flex-shrink: 0; }
+    .status-strip.error   { background: #FFF2F2; border-color: #FFC5C5; color: var(--gov-crimson); }
+    .status-strip.success { background: #F0FFF5; border-color: #A7F3C4; color: var(--gov-green); }
+    .status-strip.info    { background: #EEF8F1; border-color: #B9DCC4; color: var(--gov-navy); }
+    .status-strip.live    { background: #F0FAF3; border-color: #B9DCC4; color: var(--gov-saffron); }
+
+    /* ═══════════════ TRANSCRIPT PANEL ═══════════════ */
+    .transcript-scroll {
+      min-height: 300px;
+      max-height: 55vh;
+      overflow-y: auto;
+      padding: 4px 2px;
+    }
+
+    .transcript-scroll::-webkit-scrollbar { width: 6px; }
+    .transcript-scroll::-webkit-scrollbar-track { background: var(--surface-2); border-radius: 3px; }
+    .transcript-scroll::-webkit-scrollbar-thumb { background: var(--border-dark); border-radius: 3px; }
+
+    .transcript-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 60px 20px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    .transcript-empty-icon { font-size: 48px; color: var(--text-muted); }
+    .transcript-empty p { font-size: 14px; }
+
+    .transcript-line {
+      display: flex;
+      gap: 12px;
+      padding: 11px 14px;
+      border-radius: var(--radius);
+      border-left: 3px solid transparent;
+      margin-bottom: 4px;
+      transition: background .1s;
+    }
+
+    .transcript-line:hover { background: var(--surface-2); }
+
+    .tl-meta {
+      flex-shrink: 0;
+      min-width: 130px;
+      max-width: 160px;
+    }
+
+    .tl-role {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .tl-name {
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+
+    .tl-text {
+      flex: 1;
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text);
+      border-left: 1px solid var(--border);
+      padding-left: 12px;
+    }
+
+    .tl-edit {
+      align-self: flex-start;
+      border: 0;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 14px;
+      padding: 2px 4px;
+    }
+
+    .tl-edit:hover, .tl-edit:focus { color: var(--gov-navy); }
+    .tl-edit:disabled { cursor: not-allowed; }
+
+    .tl-edit-form {
+      display: flex;
+      flex: 1;
+      gap: 6px;
+      align-items: flex-start;
+    }
+
+    .tl-edit-form input { flex: 1; min-width: 0; }
+
+    /* ═══════════════ RECORDINGS LIBRARY ═══════════════ */
+    .recording-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: all .15s;
+      margin-bottom: 8px;
+      background: var(--surface);
+    }
+
+    .recording-item:hover { border-color: var(--gov-navy); background: #EEF8F1; }
+    .recording-item.active { border-color: var(--gov-navy); background: #E8F4EC; }
+
+    .rec-icon {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      background: var(--gov-navy);
+      color: white;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .rec-info { flex: 1; min-width: 0; }
+    .rec-name { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .rec-date { font-size: 11px; color: var(--text-muted); }
+
+    .rec-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+    /* ═══════════════ SESSION INFO BAR ═══════════════ */
+    .session-info-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      background: #E8F4EC;
+      border: 1px solid #C6DFCE;
+      border-radius: var(--radius);
+      margin-bottom: 14px;
+    }
+
+    .session-info-bar .session-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--text-muted);
+    }
+
+    .session-info-bar .session-name {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--gov-navy);
+    }
+
+    .session-info-bar .sep { color: var(--border-dark); }
+
+    /* ═══════════════ DETAIL PREVIEW ═══════════════ */
+    .detail-preview {
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface-2);
+    }
+
+    .detail-preview h3 {
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--gov-navy);
+      margin-bottom: 4px;
+    }
+
+    .detail-preview .meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    audio.player {
+      width: 100%;
+      height: 36px;
+      margin-bottom: 10px;
+    }
+
+    .detail-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+
+    /* ═══════════════ BADGE ═══════════════ */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+
+    .badge-navy { background: var(--gov-navy); color: white; }
+    .badge-green { background: var(--gov-green); color: white; }
+    .badge-orange { background: var(--gov-saffron); color: white; }
+
+    /* ═══════════════ FOOTER ═══════════════ */
+    .site-footer {
+      background: var(--gov-navy);
+      color: #C5DFCD;
+      text-align: center;
+      padding: 12px 24px;
+      font-size: 11px;
+      letter-spacing: .04em;
+    }
+
+    .site-footer strong { color: #E4F2E8; }
+
+    /* ═══════════════ UTILITY ═══════════════ */
+    .flex { display: flex; }
+    .gap-8 { gap: 8px; }
+    .gap-10 { gap: 10px; }
+    .items-end { align-items: flex-end; }
+    .mt-10 { margin-top: 10px; }
+    .mt-14 { margin-top: 14px; }
+    .text-muted { color: var(--text-muted); font-size: 12px; }
+    .hidden { display: none !important; }
+
+    /* ═══════════════ SCROLLBAR ═══════════════ */
+    .sidebar-scroll {
+      max-height: 320px;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+    .sidebar-scroll::-webkit-scrollbar { width: 5px; }
+    .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+    .sidebar-scroll::-webkit-scrollbar-thumb { background: var(--border-dark); border-radius: 3px; }
+
+    /* ═══════════════ RESPONSIVE ═══════════════ */
+    @media (max-width: 860px) {
+      .app-layout {
+        grid-template-columns: 1fr;
+        padding: 14px 14px 24px;
+      }
+      .header-top { padding: 12px 16px; }
+      .header-status-bar { padding: 6px 16px; }
+      .gov-emblem { width: 48px; height: 48px; font-size: 24px; }
+    }
+
+    @media (max-width: 520px) {
+      .header-status-bar { flex-wrap: wrap; gap: 10px; }
+      .header-clock { margin-left: 0; }
+      .tl-meta { min-width: 90px; max-width: 110px; }
+    }
+  </style>
+</head>
+<body>
+
+  <svg aria-hidden="true" width="0" height="0" style="position:absolute">
+    <symbol id="icon-scales" viewBox="0 0 24 24"><path d="M12 3v18M6 21h12M4 6h16M7 6l-3 6h6L7 6Zm10 0-3 6h6l-3-6Z"/></symbol>
+    <symbol id="icon-microphone" viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="12" rx="4"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></symbol>
+    <symbol id="icon-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/></symbol>
+    <symbol id="icon-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1M16 5.5a3 3 0 0 1 0 5.8M18 14a4 4 0 0 1 3 4v2"/></symbol>
+    <symbol id="icon-file" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6V3Z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></symbol>
+    <symbol id="icon-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+    <symbol id="icon-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"/></symbol>
+    <symbol id="icon-edit" viewBox="0 0 24 24"><path d="m4 20 4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20ZM13.5 7.5l3 3"/></symbol>
+    <symbol id="icon-clipboard" viewBox="0 0 24 24"><path d="M8 5H6a2 2 0 0 0-2 2v13h16V7a2 2 0 0 0-2-2h-2"/><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M8 12h8M8 16h6"/></symbol>
+    <symbol id="icon-library" viewBox="0 0 24 24"><path d="M4 4h16v16H4V4Z"/><path d="M8 8h8M8 12h8M8 16h5"/></symbol>
+    <symbol id="icon-calendar" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></symbol>
+    <symbol id="icon-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7V5Z"/></symbol>
+    <symbol id="icon-desktop" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+    <symbol id="icon-volume" viewBox="0 0 24 24"><path d="M4 10v4h4l5 4V6l-5 4H4ZM17 9a5 5 0 0 1 0 6M19 6a9 9 0 0 1 0 12"/></symbol>
+    <symbol id="icon-recording" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" fill="currentColor" stroke="none"/></symbol>
+  </svg>
+
+  <!-- ══════════════ TRICOLOR TOP STRIPE ══════════════ -->
+  <div class="tricolor-bar" aria-hidden="true">
+    <span></span><span></span><span></span>
+  </div>
+
+  <!-- ══════════════ SITE HEADER ══════════════ -->
+  <header class="site-header" role="banner">
+    <div class="header-top">
+      <div class="gov-emblem" role="img" aria-label="Official seal">
+        <svg class="ui-icon" aria-hidden="true"><use href="#icon-scales"></use></svg>
+      </div>
+      <div class="header-identity">
+        <div class="gov-label">Official Court Proceedings</div>
+        <div class="site-title">CourtScribe</div>
+        <div class="site-subtitle">Live Transcription &amp; Record Management System</div>
+      </div>
+    </div>
+    <div class="header-status-bar">
+      <div class="hstatus-item">
+        <svg class="ui-icon" aria-hidden="true"><use href="#icon-microphone"></use></svg>
+        <span id="mic-status-text">Microphone: —</span>
+      </div>
+      <div class="hstatus-item" id="session-header-info" style="display:none">
+        <svg class="ui-icon" aria-hidden="true"><use href="#icon-folder"></use></svg>
+        <span id="session-header-name">—</span>
+      </div>
+      <div class="header-clock" id="live-clock"></div>
+    </div>
+  </header>
+
+  <!-- ══════════════ APP LAYOUT ══════════════ -->
+  <div class="app-layout" role="main">
+
+    <!-- ════════ LEFT SIDEBAR ════════ -->
+    <aside class="sidebar" aria-label="Controls">
+
+      <!-- SESSION CARD -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-folder"></use></svg></div>
+          <h2>Session</h2>
+          <span class="card-badge" id="session-badge">None</span>
+        </div>
+        <div class="card-body">
+          <div class="field-group">
+            <label class="field-label" for="session-name">New session name</label>
+            <div class="input-row">
+              <input id="session-name" type="text" maxlength="80"
+                     placeholder="e.g. CRL 42/2026 — Morning" autocomplete="off">
+              <button class="btn btn-primary" id="new-session" type="button">Create</button>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="existing-session">Or open existing</label>
+            <select id="existing-session">
+              <option value="">— Select saved session —</option>
+            </select>
+          </div>
+
+          <div id="active-session-bar" class="session-info-bar" style="display:none; margin-bottom:0;">
+            <svg class="ui-icon" style="font-size:18px;" aria-hidden="true"><use href="#icon-folder"></use></svg>
+            <div>
+              <div class="session-label">Active session</div>
+              <div class="session-name" id="active-session-name">—</div>
+            </div>
+            <span class="sep">|</span>
+            <div class="session-name" id="session-duration">00:00:00</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SPEAKERS CARD -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-users"></use></svg></div>
+          <h2>Speakers</h2>
+          <span class="card-badge" id="speaker-count">1</span>
+        </div>
+        <div class="card-body">
+          <div class="field-group">
+            <label class="field-label" for="speaker-role">Add speaker</label>
+            <select id="speaker-role" aria-label="Speaker role" style="margin-bottom:8px;">
+              <option>JUDGE</option>
+              <option>PUBLIC PROSECUTOR</option>
+              <option>COMPLAINANT'S COUNSEL</option>
+              <option>DEFENDANT'S COUNSEL</option>
+              <option>PW</option>
+              <option>DW</option>
+              <option>CW</option>
+              <option>ACCUSED</option>
+              <option>COMPLAINANT</option>
+              <option>INTERPRETER</option>
+            </select>
+            <div class="input-row">
+              <input id="speaker-name" type="text" maxlength="80"
+                     placeholder="Speaker name (optional)" autocomplete="off">
+              <button class="btn btn-primary" id="add-speaker" type="button">Add</button>
+            </div>
+          </div>
+
+          <div class="section-label">Current speaker</div>
+          <div id="speaker-chips" class="speaker-chips" role="group" aria-label="Select current speaker"></div>
+        </div>
+      </div>
+
+      <!-- RECORD CARD -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-microphone"></use></svg></div>
+          <h2>Recording</h2>
+        </div>
+        <div class="card-body" style="padding:14px;">
+          <div class="record-zone" id="record-zone">
+            <div class="record-btn-wrap">
+              <button class="record-main-btn" id="record-button" type="button" disabled
+                      aria-label="Start recording" title="Ctrl+M to start, Ctrl+F to stop">
+                <svg class="ui-icon" aria-hidden="true"><use href="#icon-microphone"></use></svg>
+              </button>
+            </div>
+            <div class="record-hint" id="record-hint">Create or select a session first</div>
+          </div>
+
+          <div class="status-strip" id="status-strip">
+            <span class="dot"></span>
+            <span id="status-text">Create or select a session to begin.</span>
+          </div>
+
+          <div style="margin-top:12px; display:flex; gap:8px;">
+            <button class="btn btn-green btn-full" id="export-pdf" type="button" disabled>
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-file"></use></svg> Export PDF
+            </button>
+            <button class="btn btn-ghost btn-full" id="pause-session" type="button" disabled>
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-pause"></use></svg> Pause
+            </button>
+            <button class="btn btn-danger btn-full" id="end-session" type="button" disabled>
+              <svg class="ui-icon" aria-hidden="true"><use href="#icon-stop"></use></svg> End
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- ════════ MAIN CONTENT AREA ════════ -->
+    <section class="main-content" aria-label="Transcript and recordings">
+
+      <!-- LIVE TRANSCRIPT CARD -->
+      <div class="card" style="flex:1; display:flex; flex-direction:column;">
+        <div class="card-header">
+          <div class="card-header-icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-edit"></use></svg></div>
+          <h2>Live Transcript</h2>
+          <span class="card-badge" id="line-count">0 lines</span>
+        </div>
+        <div class="card-body" style="flex:1; padding:14px;">
+          <div class="transcript-scroll" id="transcript" aria-live="polite" aria-label="Live transcript">
+            <div class="transcript-empty" id="empty-transcript">
+              <div class="transcript-empty-icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-clipboard"></use></svg></div>
+              <p>Transcript lines will appear here once recording begins.</p>
+              <p class="text-muted">Hold <kbd>Space</kbd> or press the microphone button to speak.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RECORDINGS LIBRARY CARD -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-header-icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-library"></use></svg></div>
+          <h2>Saved Recordings</h2>
+          <span class="card-badge" id="rec-count">0</span>
+        </div>
+        <div class="card-body" style="padding:14px;">
+          <div style="display:grid; grid-template-columns: 220px 1fr; gap:14px;" id="library-grid">
+            <div>
+              <div class="section-label">Session folders</div>
+              <div class="sidebar-scroll" id="library-folders">
+                <p class="text-muted" style="padding:8px 0;">Loading…</p>
+              </div>
+            </div>
+            <div id="library-detail">
+              <div class="section-label">Details</div>
+              <div class="transcript-empty" style="padding:30px 20px;">
+                <div class="transcript-empty-icon"><svg class="ui-icon" aria-hidden="true"><use href="#icon-library"></use></svg></div>
+                <p>Select a session folder to view details.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+  </div>
+
+  <!-- ══════════════ FOOTER ══════════════ -->
+  <footer class="site-footer">
+    <strong>CourtScribe</strong> — Official Court Transcription System &nbsp;|&nbsp;
+    Powered by Gnani Vachana STT &nbsp;|&nbsp;
+    All proceedings are confidential and protected under applicable law.
+  </footer>
+
+  <!-- ══════════════ JAVASCRIPT ══════════════ -->
+  <script>
+  (() => {
+    function icon(name, className = 'ui-icon') {
+      return `<svg class="${className}" aria-hidden="true"><use href="#icon-${name}"></use></svg>`;
+    }
+
+    /* ─────────── DOM refs ─────────── */
+    const recordButton       = document.getElementById('record-button');
+    const recordZone         = document.getElementById('record-zone');
+    const recordHint         = document.getElementById('record-hint');
+    const addSpeakerButton   = document.getElementById('add-speaker');
+    const speakerRoleInput   = document.getElementById('speaker-role');
+    const speakerNameInput   = document.getElementById('speaker-name');
+    const speakerChips       = document.getElementById('speaker-chips');
+    const speakerCount       = document.getElementById('speaker-count');
+    const transcript         = document.getElementById('transcript');
+    const emptyTranscript    = document.getElementById('empty-transcript');
+    const statusText         = document.getElementById('status-text');
+    const statusStrip        = document.getElementById('status-strip');
+    const sessionNameInput   = document.getElementById('session-name');
+    const newSessionButton   = document.getElementById('new-session');
+    const existingSession    = document.getElementById('existing-session');
+    const pauseSessionButton = document.getElementById('pause-session');
+    const endSessionButton   = document.getElementById('end-session');
+    const activeSessionBar   = document.getElementById('active-session-bar');
+    const activeSessionName  = document.getElementById('active-session-name');
+    const sessionDuration    = document.getElementById('session-duration');
+    const sessionBadge       = document.getElementById('session-badge');
+    const sessionHeaderInfo  = document.getElementById('session-header-info');
+    const sessionHeaderName  = document.getElementById('session-header-name');
+    const libraryFolders     = document.getElementById('library-folders');
+    const libraryDetail      = document.getElementById('library-detail');
+    const exportPdfButton    = document.getElementById('export-pdf');
+    const lineCount          = document.getElementById('line-count');
+    const recCount           = document.getElementById('rec-count');
+    const micStatusText      = document.getElementById('mic-status-text');
+    const liveClock          = document.getElementById('live-clock');
+
+    /* ─────────── State ─────────── */
+    const SPEAKER_COLORS = [
+      '#2F6F4E','#5A9A75','#2F7D52','#B22222','#6C8F7A','#3F8A68','#7A8F3D'
+    ];
+    const speakers = [{ id: 'all', name: 'All speakers', role: '', color: '#3D4A6B' }];
+    let selectedSpeakerId = 'all';
+    let socket, audioContext, mediaStream, processor, source;
+    let isRecording = false;
+    let isPushToTalk = false;
+    let currentSession = null;
+    let libraryItems = [];
+    let lineCounter = 0;
+    let pendingSegmentCount = 0;
+    let sessionDurationSeconds = 0;
+    let sessionTimerStartedAt = null;
+    let sessionTimer = null;
+    let stopReason = 'end';
+    const PAUSED_SESSION_KEY = 'courtscribe-paused-session';
+
+    /* ─────────── Live Clock ─────────── */
+    function updateClock() {
+      const now = new Date();
+      liveClock.textContent = now.toLocaleTimeString('en-IN', {
+        hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit'
+      }) + ' IST';
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    /* ─────────── Status helpers ─────────── */
+    function setStatus(msg, type = '') {
+      statusText.textContent = msg;
+      statusStrip.className = 'status-strip' + (type ? ' ' + type : '');
+      const dot = statusStrip.querySelector('.dot');
+      dot.className = 'dot' +
+        (type === 'error' ? ' error' : type === 'success' ? ' online' :
+         type === 'live'  ? ' warning' : '');
+    }
+
+    function formatDuration(seconds) {
+      const total = Math.max(0, Math.floor(seconds));
+      const hours = Math.floor(total / 3600);
+      const minutes = Math.floor((total % 3600) / 60);
+      const remainder = total % 60;
+      return [hours, minutes, remainder].map(value => String(value).padStart(2, '0')).join(':');
+    }
+
+    function renderSessionDuration() {
+      const elapsed = sessionTimerStartedAt
+        ? sessionDurationSeconds + (Date.now() - sessionTimerStartedAt) / 1000
+        : sessionDurationSeconds;
+      sessionDuration.textContent = formatDuration(elapsed);
+    }
+
+    function startSessionTimer() {
+      if (sessionTimerStartedAt) return;
+      sessionTimerStartedAt = Date.now();
+      renderSessionDuration();
+      sessionTimer = setInterval(renderSessionDuration, 1000);
+    }
+
+    function stopSessionTimer() {
+      if (sessionTimerStartedAt) {
+        sessionDurationSeconds += (Date.now() - sessionTimerStartedAt) / 1000;
+      }
+      sessionTimerStartedAt = null;
+      if (sessionTimer) clearInterval(sessionTimer);
+      sessionTimer = null;
+      renderSessionDuration();
+    }
+
+    function pausedSession() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(PAUSED_SESSION_KEY) || 'null');
+        return saved && typeof saved === 'object' ? saved : null;
+      } catch {
+        return null;
+      }
+    }
+
+    /* ─────────── Speaker rendering ─────────── */
+    function renderSpeakers() {
+      speakerChips.replaceChildren();
+      speakerCount.textContent = speakers.length;
+      speakers.forEach(sp => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'chip' + (sp.id === 'all' ? ' chip-all' : '') +
+                         (sp.id === selectedSpeakerId ? ' active' : '');
+        const dot = document.createElement('span');
+        dot.className = 'chip-dot';
+        dot.style.background = sp.color;
+        chip.appendChild(dot);
+        chip.appendChild(document.createTextNode(
+          sp.id === 'all' ? 'All Speakers' : `${sp.role} — ${sp.name}`
+        ));
+        chip.addEventListener('click', () => {
+          selectedSpeakerId = sp.id;
+          renderSpeakers();
+          if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: 'speaker', name: sp.name, role: sp.role }));
+          }
+        });
+        speakerChips.appendChild(chip);
+      });
+    }
+
+    function createSpeaker(role, name) {
+      const sp = {
+        id: `sp-${Date.now()}`,
+        name,
+        role,
+        color: SPEAKER_COLORS[(speakers.length) % SPEAKER_COLORS.length]
+      };
+      speakers.push(sp);
+      selectedSpeakerId = sp.id;
+      renderSpeakers();
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'speaker', name: sp.name, role: sp.role }));
+      }
+      return sp;
+    }
+
+    function addSpeaker() {
+      const name = speakerNameInput.value.trim() || speakerRoleInput.value;
+      createSpeaker(speakerRoleInput.value, name);
+      speakerNameInput.value = '';
+      speakerNameInput.focus();
+    }
+
+    function selectedSpeaker() {
+      return speakers.find(s => s.id === selectedSpeakerId) || speakers[0];
+    }
+
+    /* ─────────── Transcript rendering ─────────── */
+    function appendTranscript(text, speakerOverride = null, options = {}) {
+      const spokenText = String(text || '').trim();
+      if (!spokenText) return;
+      emptyTranscript.hidden = true;
+      lineCounter++;
+      lineCount.textContent = lineCounter + (lineCounter === 1 ? ' line' : ' lines');
+
+      const sp = speakerOverride || selectedSpeaker();
+      const line = document.createElement('div');
+      line.className = 'transcript-line';
+      line.style.borderLeftColor = sp.color || '#2F6F4E';
+
+      const meta = document.createElement('div');
+      meta.className = 'tl-meta';
+
+      const role = document.createElement('div');
+      role.className = 'tl-role';
+      role.textContent = sp.role || 'All Speakers';
+
+      const nameEl = document.createElement('div');
+      nameEl.className = 'tl-name';
+      nameEl.style.color = sp.color || '#2F6F4E';
+      nameEl.textContent = sp.name || 'All Speakers';
+
+      meta.appendChild(role);
+      meta.appendChild(nameEl);
+
+      const textEl = document.createElement('div');
+      textEl.className = 'tl-text';
+      textEl.textContent = spokenText;
+
+      line.appendChild(meta);
+      line.appendChild(textEl);
+      if (options.final && Number.isInteger(options.segmentIndex)) {
+        const editButton = document.createElement('button');
+        editButton.type = 'button';
+        editButton.className = 'tl-edit';
+        editButton.innerHTML = icon('edit');
+        editButton.title = 'Edit transcript line';
+        editButton.setAttribute('aria-label', 'Edit transcript line');
+        editButton.disabled = isRecording;
+        editButton.addEventListener('click', () => enterTranscriptEdit(
+          line, textEl, editButton, options.segmentIndex
+        ));
+        line.addEventListener('dblclick', () => enterTranscriptEdit(
+          line, textEl, editButton, options.segmentIndex
+        ));
+        line.appendChild(editButton);
+      }
+      transcript.appendChild(line);
+      transcript.scrollTop = transcript.scrollHeight;
+    }
+
+    function setTranscriptEditingEnabled(enabled) {
+      transcript.querySelectorAll('.tl-edit').forEach(button => {
+        button.disabled = !enabled;
+      });
+    }
+
+    async function enterTranscriptEdit(line, textEl, editButton, segmentIndex) {
+      if (isRecording || line.querySelector('.tl-edit-form')) return;
+      const form = document.createElement('form');
+      form.className = 'tl-edit-form';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = textEl.textContent;
+      input.setAttribute('aria-label', 'Transcript text');
+      const saveButton = document.createElement('button');
+      saveButton.type = 'submit';
+      saveButton.className = 'btn btn-primary btn-sm';
+      saveButton.textContent = 'Save';
+      const cancelButton = document.createElement('button');
+      cancelButton.type = 'button';
+      cancelButton.className = 'btn btn-ghost btn-sm';
+      cancelButton.textContent = 'Cancel';
+      form.append(input, saveButton, cancelButton);
+      textEl.replaceWith(form);
+      editButton.hidden = true;
+      input.focus();
+      input.select();
+
+      const restore = () => {
+        form.replaceWith(textEl);
+        editButton.hidden = false;
+      };
+      cancelButton.addEventListener('click', restore);
+      form.addEventListener('submit', async event => {
+        event.preventDefault();
+        const correctedText = input.value.trim();
+        if (!correctedText) {
+          setStatus('Transcript text must not be blank.', 'error');
+          input.focus();
+          return;
+        }
+        saveButton.disabled = true;
+        cancelButton.disabled = true;
+        try {
+          const response = await fetch(apiUrl(
+            `/recordings/${encodeURIComponent(currentSession.id)}/segment/${segmentIndex}`
+          ), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: correctedText })
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(result.detail || 'Could not save transcript edit.');
+          textEl.textContent = result.segment?.text || correctedText;
+          if (currentSession?.segments?.[segmentIndex]) {
+            currentSession.segments[segmentIndex].text = textEl.textContent;
+          }
+          restore();
+          setStatus('Transcript line updated.', 'success');
+        } catch (error) {
+          saveButton.disabled = false;
+          cancelButton.disabled = false;
+          setStatus(error.message || 'Could not save transcript edit.', 'error');
+        }
+      });
+    }
+
+    /* ─────────── URL helpers ─────────── */
+    function apiUrl(path) {
+      const proto = location.protocol === 'https:' ? 'https:' : 'http:';
+      return `${proto}//${location.hostname || 'localhost'}:8000${path}`;
+    }
+
+    function websocketUrl() {
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = (location.hostname || 'localhost') + ':8000';
+      if (!currentSession) throw new Error('Create or select a session first.');
+      const names = speakers.filter(s => s.id !== 'all').map(s => s.name);
+      const params = new URLSearchParams({
+        speaker_names: JSON.stringify(names),
+        session_id: currentSession.id
+      });
+      return `${proto}//${host}/ws/transcribe?${params}`;
+    }
+
+    /* ─────────── Session management ─────────── */
+    function activateSession(session) {
+      currentSession = session;
+      const savedPause = pausedSession();
+      const isSavedPause = savedPause?.id === session.id;
+      stopSessionTimer();
+      sessionDurationSeconds = isSavedPause ? Number(savedPause.duration) || 0 : 0;
+      sessionBadge.textContent = session.name.substring(0, 12) + (session.name.length > 12 ? '…' : '');
+      activeSessionBar.style.display = 'flex';
+      activeSessionName.textContent = session.name;
+      sessionHeaderInfo.style.display = 'flex';
+      sessionHeaderName.textContent = session.name;
+      recordButton.disabled = false;
+      recordZone.classList.add('active-session');
+      recordHint.textContent = 'Ctrl+M to start recording · Ctrl+F to stop';
+      renderSessionDuration();
+    }
+
+    async function createSession() {
+      const name = sessionNameInput.value.trim();
+      if (!name) { sessionNameInput.focus(); setStatus('Enter a session name.', 'error'); return; }
+      newSessionButton.disabled = true;
+      try {
+        const r = await fetch(apiUrl('/sessions'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name })
+        });
+        const session = await r.json();
+        if (!r.ok) throw new Error(session.detail || 'Could not create session.');
+        activateSession(session);
+        localStorage.removeItem(PAUSED_SESSION_KEY);
+        exportPdfButton.disabled = true;
+        transcript.replaceChildren(emptyTranscript);
+        emptyTranscript.hidden = false;
+        lineCounter = 0;
+        pendingSegmentCount = 0;
+        lineCount.textContent = '0 lines';
+        sessionNameInput.value = '';
+        setStatus(`Session "${session.name}" created successfully.`, 'success');
+        await loadLibrary();
+      } catch (err) {
+        setStatus(err.message || 'Could not create session.', 'error');
+      } finally {
+        newSessionButton.disabled = false;
+      }
+    }
+
+    function selectSession(item) {
+      if (isRecording) return;
+      activateSession(item);
+      exportPdfButton.disabled = false;
+      existingSession.value = item.id;
+      transcript.replaceChildren(emptyTranscript);
+      lineCounter = 0;
+      pendingSegmentCount = 0;
+      lineCount.textContent = '0 lines';
+      emptyTranscript.hidden = !(item.segments || []).length;
+      (item.segments || []).forEach((seg, segmentIndex) => {
+        appendTranscript(seg.text, {
+          name: seg.name || seg.speaker || 'All Speakers',
+          role: seg.role || '',
+          color: SPEAKER_COLORS[0]
+        }, { final: true, segmentIndex });
+      });
+      const savedPause = pausedSession();
+      if (savedPause?.id === item.id) {
+        setStatus(`Session paused at ${new Date(savedPause.pausedAt).toLocaleTimeString('en-IN')}.`, 'info');
+      } else {
+        setStatus(`Session "${item.name}" loaded.`, 'success');
+      }
+      showLibraryDetail(item);
+    }
+
+    /* ─────────── Library ─────────── */
+    async function loadLibrary() {
+      try {
+        const r = await fetch(apiUrl('/recordings'));
+        if (!r.ok) throw new Error('Could not load saved recordings.');
+        renderLibrary(await r.json());
+      } catch (err) {
+        libraryFolders.innerHTML = `<p class="text-muted" style="color:var(--gov-crimson)">${err.message}</p>`;
+      }
+    }
+
+    function renderLibrary(items) {
+      libraryItems = items;
+      recCount.textContent = items.length;
+
+      /* update dropdown */
+      existingSession.replaceChildren(new Option('— Select saved session —', ''));
+      items.forEach(item => {
+        existingSession.append(new Option(
+          `${item.name} — ${new Date(item.created_at).toLocaleString('en-IN')}`,
+          item.id
+        ));
+      });
+      if (currentSession) existingSession.value = currentSession.id;
+
+      /* render folder list */
+      libraryFolders.replaceChildren();
+      if (!items.length) {
+        libraryFolders.innerHTML = '<p class="text-muted" style="padding:8px 0;">No saved recordings yet.</p>';
+        libraryDetail.innerHTML = `<div class="section-label">Details</div><div class="transcript-empty" style="padding:30px 20px;"><div class="transcript-empty-icon">${icon('library')}</div><p>No sessions yet.</p></div>`;
+        return;
+      }
+
+      items.forEach(item => {
+        const el = document.createElement('div');
+        el.className = 'recording-item' + (item.id === currentSession?.id ? ' active' : '');
+        el.innerHTML = `
+          <div class="rec-icon">${icon('folder')}</div>
+          <div class="rec-info">
+            <div class="rec-name" title="${item.name}">${item.name}</div>
+            <div class="rec-date">${new Date(item.created_at).toLocaleDateString('en-IN')}</div>
+          </div>`;
+        el.addEventListener('click', () => {
+          if (isRecording) return;
+          libraryFolders.querySelectorAll('.recording-item').forEach(e => e.classList.remove('active'));
+          el.classList.add('active');
+          showLibraryDetail(item);
+        });
+        libraryFolders.appendChild(el);
+      });
+
+      const selected = items.find(i => i.id === currentSession?.id) || items[0];
+      if (selected) showLibraryDetail(selected);
+    }
+
+    function showLibraryDetail(item) {
+      const sectionLabel = '<div class="section-label">Details</div>';
+      libraryDetail.innerHTML = '';
+      libraryDetail.insertAdjacentHTML('beforeend', sectionLabel);
+
+      const preview = document.createElement('div');
+      preview.className = 'detail-preview';
+
+      preview.innerHTML = `
+        <h3>${item.name}</h3>
+        <p class="meta">${icon('calendar')} ${new Date(item.created_at).toLocaleString('en-IN')} &nbsp;|&nbsp;
+          <span class="badge badge-navy">${(item.segments || []).length} segments</span>
+        </p>
+        <audio class="player" controls src="${apiUrl(item.audio_url)}"
+               aria-label="Recording for ${item.name}"></audio>
+        <div class="detail-actions">
+          <button class="btn btn-primary btn-sm" id="continue-btn">${icon('play')} Continue Transcript</button>
+          <a href="${apiUrl(item.pdf_url)}" target="_blank" rel="noopener">
+            <button class="btn btn-ghost btn-sm" type="button">${icon('file')} PDF</button>
+          </a>
+          <button class="btn btn-ghost btn-sm" id="save-desktop-btn" type="button">${icon('desktop')} Save to Desktop</button>
+          <a href="${apiUrl(item.audio_url)}" target="_blank" rel="noopener">
+            <button class="btn btn-ghost btn-sm" type="button">${icon('volume')} Audio</button>
+          </a>
+        </div>`;
+
+      libraryDetail.appendChild(preview);
+
+      libraryDetail.querySelector('#continue-btn').addEventListener('click', () => {
+        selectSession(item);
+        document.querySelector('.site-header').scrollIntoView({ behavior: 'smooth' });
+        setStatus(`Continuing transcript in "${item.name}". Hold Space to add audio.`, 'info');
+      });
+      libraryDetail.querySelector('#save-desktop-btn').addEventListener('click', () => {
+        saveToDesktop(item.id, 'pdf');
+      });
+    }
+
+    /* ─────────── PDF export ─────────── */
+    async function saveToDesktop(recordingId, format) {
+      const button = libraryDetail.querySelector('#save-desktop-btn');
+      if (button) button.disabled = true;
+      try {
+        const r = await fetch(apiUrl('/export-to-desktop'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recording_id: recordingId, format })
+        });
+        const result = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(result.detail || 'Could not save the export.');
+        setStatus(`Saved to Desktop: ${result.saved_to}`, 'success');
+      } catch (err) {
+        setStatus(err.message || 'Could not save the export.', 'error');
+      } finally {
+        if (button) button.disabled = false;
+      }
+    }
+
+    async function exportPdf() {
+      if (!currentSession) return;
+      exportPdfButton.disabled = true;
+      try {
+        const r = await fetch(apiUrl('/export-pdf'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recording_id: currentSession.id })
+        });
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.detail || 'Could not export the PDF.');
+        }
+        const blob = await r.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${currentSession.name || 'courtscribe-transcript'}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setStatus('Transcript PDF downloaded successfully.', 'success');
+      } catch (err) {
+        setStatus(err.message || 'Could not export the PDF.', 'error');
+      } finally {
+        exportPdfButton.disabled = false;
+      }
+    }
+
+    /* ─────────── Audio processing ─────────── */
+    function downsampleToPcm(input, inRate, outRate) {
+      if (inRate === outRate) {
+        return new Int16Array(input.map(s => Math.max(-1, Math.min(1, s)) * 32767));
+      }
+      const ratio = inRate / outRate;
+      const len = Math.round(input.length / ratio);
+      const out = new Int16Array(len);
+      for (let i = 0; i < len; i++) {
+        const start = Math.floor(i * ratio);
+        const end   = Math.min(Math.floor((i + 1) * ratio), input.length);
+        let sum = 0;
+        for (let j = start; j < end; j++) sum += input[j];
+        out[i] = Math.max(-1, Math.min(1, sum / Math.max(1, end - start))) * 32767;
+      }
+      return out;
+    }
+
+    /* ─────────── Recording ─────────── */
+    async function startRecording() {
+      if (!currentSession) throw new Error('Create or select a session first.');
+      if (isRecording) { isPushToTalk = true; setStatus('Listening…', 'live'); return; }
+      if (!window.isSecureContext && location.hostname !== 'localhost') {
+        throw new Error('Microphone access requires HTTPS or localhost.');
+      }
+      micStatusText.textContent = 'Microphone: Requesting…';
+      mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStatusText.innerHTML = `Microphone: Active ${icon('recording')}`;
+
+      socket = new WebSocket(websocketUrl());
+      socket.binaryType = 'arraybuffer';
+      await new Promise((resolve, reject) => {
+        socket.addEventListener('open', resolve, { once: true });
+        socket.addEventListener('error', () => reject(new Error('Could not connect to the backend.')), { once: true });
+      });
+
+      socket.send(JSON.stringify({
+        type: 'speaker',
+        name: selectedSpeaker().name,
+        role: selectedSpeaker().role
+      }));
+
+      audioContext = new AudioContext();
+      source    = audioContext.createMediaStreamSource(mediaStream);
+      processor = audioContext.createScriptProcessor(4096, 1, 1);
+      processor.onaudioprocess = ev => {
+        if (!isPushToTalk || socket.readyState !== WebSocket.OPEN) return;
+        const pcm = downsampleToPcm(ev.inputBuffer.getChannelData(0), audioContext.sampleRate, 16000);
+        socket.send(pcm.buffer);
+      };
+      source.connect(processor);
+      processor.connect(audioContext.destination);
+
+      socket.onmessage = ev => {
+        try {
+          const msg = JSON.parse(ev.data);
+          if (msg.type === 'transcript') {
+            const segmentIndex = (currentSession?.segments || []).length + pendingSegmentCount;
+            appendTranscript(msg.text, {
+              name: msg.speaker || selectedSpeaker().name,
+              role: msg.role   || selectedSpeaker().role || '',
+              color: selectedSpeaker().color
+            }, {
+              final: msg.final === true,
+              segmentIndex
+            });
+            if (String(msg.text || '').trim()) pendingSegmentCount++;
+          }
+          if (msg.type === 'error')  setStatus(msg.message || 'Transcription error.', 'error');
+          if (msg.type === 'saved') {
+            exportPdfButton.disabled = false;
+            if (stopReason === 'pause') {
+              const savedPause = pausedSession();
+              const pausedAt = savedPause?.pausedAt
+                ? new Date(savedPause.pausedAt).toLocaleTimeString('en-IN')
+                : 'now';
+              setStatus(`Session paused at ${pausedAt}.`, 'info');
+            } else {
+              setStatus('Recording and transcript PDF saved.', 'success');
+            }
+            loadLibrary();
+          }
+        } catch { setStatus('Invalid message from backend.', 'error'); }
+      };
+
+      socket.onclose = () => { if (isRecording) endSession(); };
+
+      isRecording   = true;
+      isPushToTalk  = true;
+      setTranscriptEditingEnabled(false);
+      stopReason = 'end';
+      startSessionTimer();
+      endSessionButton.disabled  = false;
+      pauseSessionButton.disabled = false;
+      recordButton.classList.add('speaking');
+      recordZone.classList.add('is-recording');
+      setStatus('Listening… release to pause.', 'live');
+    }
+
+    function stopSpeaking() {
+      isPushToTalk = false;
+      if (isRecording) {
+        recordButton.classList.remove('speaking');
+        setStatus('Paused. Hold Space or press the button to continue speaking.', 'info');
+      }
+    }
+
+    function endSession(reason = 'end') {
+      if (!isRecording) return;
+      stopReason = reason;
+      isPushToTalk = false;
+      isRecording  = false;
+      setTranscriptEditingEnabled(true);
+      stopSessionTimer();
+      processor?.disconnect();
+      source?.disconnect();
+      audioContext?.close();
+      mediaStream?.getTracks().forEach(t => t.stop());
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'stop' }));
+        socket.close(1000, 'Session stopped');
+      }
+      socket = processor = source = audioContext = mediaStream = null;
+      endSessionButton.disabled = true;
+      pauseSessionButton.disabled = true;
+      recordButton.classList.remove('speaking');
+      recordZone.classList.remove('is-recording');
+      micStatusText.textContent = 'Microphone: —';
+      if (reason === 'end') localStorage.removeItem(PAUSED_SESSION_KEY);
+      setStatus(reason === 'pause' ? 'Session paused. Saving recording and transcript PDF…' :
+        'Saving recording and transcript PDF…', 'info');
+    }
+
+    function pauseSession() {
+      if (!currentSession || !isRecording) return;
+      stopSessionTimer();
+      localStorage.setItem(PAUSED_SESSION_KEY, JSON.stringify({
+        id: currentSession.id,
+        duration: sessionDurationSeconds,
+        pausedAt: new Date().toISOString()
+      }));
+      endSession('pause');
+    }
+
+    /* ─────────── Event listeners ─────────── */
+    addSpeakerButton.addEventListener('click', addSpeaker);
+    newSessionButton.addEventListener('click', createSession);
+
+    speakerNameInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); addSpeaker(); }
+    });
+
+    existingSession.addEventListener('change', () => {
+      const val = existingSession.value;
+      if (!val) return;
+      fetch(apiUrl('/recordings'))
+        .then(r => r.json())
+        .then(items => { const item = items.find(i => i.id === val); if (item) selectSession(item); })
+        .catch(() => setStatus('Could not open the saved session.', 'error'));
+    });
+
+    recordButton.addEventListener('pointerdown', async e => {
+      e.preventDefault();
+      if (!isRecording) {
+        try { await startRecording(); }
+        catch (err) { setStatus(err.message || 'Could not start recording.', 'error'); }
+      } else {
+        isPushToTalk = true;
+        recordButton.classList.add('speaking');
+        setStatus('Listening…', 'live');
+      }
+    });
+
+    recordButton.addEventListener('pointerup',     stopSpeaking);
+    recordButton.addEventListener('pointerleave',  stopSpeaking);
+    recordButton.addEventListener('pointercancel', stopSpeaking);
+    pauseSessionButton.addEventListener('click', pauseSession);
+    endSessionButton.addEventListener('click', () => endSession());
+    exportPdfButton.addEventListener('click', exportPdf);
+
+    document.addEventListener('keydown', async e => {
+      if (e.ctrlKey && !e.altKey && !e.metaKey && !e.repeat) {
+        if (e.key.toLowerCase() === 'm') {
+          e.preventDefault();
+          if (!isRecording) {
+            try { await startRecording(); }
+            catch (err) { setStatus(err.message || 'Could not start recording.', 'error'); }
+          }
+          return;
+        }
+        if (e.key.toLowerCase() === 'f') {
+          e.preventDefault();
+          if (isRecording) endSession();
+          return;
+        }
+      }
+      if (e.code !== 'Space' || e.repeat || e.target.matches('input, textarea, select')) return;
+      e.preventDefault();
+      if (!isRecording) {
+        try { await startRecording(); }
+        catch (err) { setStatus(err.message || 'Could not start recording.', 'error'); }
+      } else {
+        isPushToTalk = true;
+        recordButton.classList.add('speaking');
+        setStatus('Listening…', 'live');
+      }
+    });
+
+    document.addEventListener('keyup', e => {
+      if (e.code === 'Space') { e.preventDefault(); stopSpeaking(); }
+    });
+
+    /* ─────────── Init ─────────── */
+    renderSpeakers();
+    loadLibrary();
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+"""Record microphone audio to a WAV file for speech-to-text."""
+
+import argparse
+import wave
+
+import pyaudio
+
+
+SAMPLE_RATE = 16_000
+CHANNELS = 1
+FORMAT = pyaudio.paInt16
+CHUNK_FRAMES = 1024
+
+
+def main() -> None:
+	parser = argparse.ArgumentParser()
+	parser.add_argument("--output", required=True, help="Path of the WAV file to create")
+	parser.add_argument("--seconds", type=int, default=10, help="Recording duration")
+	args = parser.parse_args()
+
+	if args.seconds <= 0:
+		parser.error("--seconds must be greater than zero")
+
+	audio = pyaudio.PyAudio()
+	stream = audio.open(
+		format=FORMAT,
+		channels=CHANNELS,
+		rate=SAMPLE_RATE,
+		input=True,
+		frames_per_buffer=CHUNK_FRAMES,
+	)
+	frames = []
+	print(f"Recording for {args.seconds} seconds...")
+	try:
+		for _ in range((SAMPLE_RATE * args.seconds) // CHUNK_FRAMES):
+			frames.append(stream.read(CHUNK_FRAMES, exception_on_overflow=False))
+	finally:
+		stream.stop_stream()
+		stream.close()
+		sample_width = audio.get_sample_size(FORMAT)
+		audio.terminate()
+
+	with wave.open(args.output, "wb") as recording:
+		recording.setnchannels(CHANNELS)
+		recording.setsampwidth(sample_width)
+		recording.setframerate(SAMPLE_RATE)
+		recording.writeframes(b"".join(frames))
+
+	print(f"Saved recording to {args.output}")
+
+
+if __name__ == "__main__":
+	main()
