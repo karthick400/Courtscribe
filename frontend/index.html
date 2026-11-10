@@ -736,6 +736,7 @@
   </div>
 
   <!-- ══════════════ SITE HEADER ══════════════ -->
+   
   <header class="site-header" role="banner">
     <div class="header-top">
       <div class="gov-emblem" role="img" aria-label="Official seal">
@@ -983,6 +984,7 @@
     let libraryItems = [];
     let lineCounter = 0;
     let pendingSegmentCount = 0;
+    let liveTranscriptLine = null;
     let sessionDurationSeconds = 0;
     let sessionTimerStartedAt = null;
     let sessionTimer = null;
@@ -1107,55 +1109,87 @@
     /* ─────────── Transcript rendering ─────────── */
     function appendTranscript(text, speakerOverride = null, options = {}) {
       const spokenText = String(text || '').trim();
-      if (!spokenText) return;
+      if (!spokenText) return false;
       emptyTranscript.hidden = true;
-      lineCounter++;
-      lineCount.textContent = lineCounter + (lineCounter === 1 ? ' line' : ' lines');
 
       const sp = speakerOverride || selectedSpeaker();
-      const line = document.createElement('div');
-      line.className = 'transcript-line';
-      line.style.borderLeftColor = sp.color || '#2F6F4E';
+      const speakerKey = `${sp.role || ''}\u0000${sp.name || 'All Speakers'}`;
+      const isFinal = options.final === true;
+      let line = liveTranscriptLine;
+      let textEl;
 
-      const meta = document.createElement('div');
-      meta.className = 'tl-meta';
+      if (!line || line.dataset.speakerKey !== speakerKey) {
+        const lastLine = transcript.lastElementChild;
+        if (isFinal && options.mergeSameSpeaker !== false &&
+            lastLine?.classList.contains('transcript-line') &&
+            lastLine.dataset.speakerKey === speakerKey) {
+          line = lastLine;
+        } else {
+          line = document.createElement('div');
+          line.className = 'transcript-line';
+          line.style.borderLeftColor = sp.color || '#2F6F4E';
 
-      const role = document.createElement('div');
-      role.className = 'tl-role';
-      role.textContent = sp.role || 'All Speakers';
+          const meta = document.createElement('div');
+          meta.className = 'tl-meta';
 
-      const nameEl = document.createElement('div');
-      nameEl.className = 'tl-name';
-      nameEl.style.color = sp.color || '#2F6F4E';
-      nameEl.textContent = sp.name || 'All Speakers';
+          const role = document.createElement('div');
+          role.className = 'tl-role';
+          role.textContent = sp.role || 'All Speakers';
 
-      meta.appendChild(role);
-      meta.appendChild(nameEl);
+          const nameEl = document.createElement('div');
+          nameEl.className = 'tl-name';
+          nameEl.style.color = sp.color || '#2F6F4E';
+          nameEl.textContent = sp.name || 'All Speakers';
 
-      const textEl = document.createElement('div');
-      textEl.className = 'tl-text';
-      textEl.textContent = spokenText;
-
-      line.appendChild(meta);
-      line.appendChild(textEl);
-      if (options.final && Number.isInteger(options.segmentIndex)) {
-        const editButton = document.createElement('button');
-        editButton.type = 'button';
-        editButton.className = 'tl-edit';
-        editButton.innerHTML = icon('edit');
-        editButton.title = 'Edit transcript line';
-        editButton.setAttribute('aria-label', 'Edit transcript line');
-        editButton.disabled = isRecording;
-        editButton.addEventListener('click', () => enterTranscriptEdit(
-          line, textEl, editButton, options.segmentIndex
-        ));
-        line.addEventListener('dblclick', () => enterTranscriptEdit(
-          line, textEl, editButton, options.segmentIndex
-        ));
-        line.appendChild(editButton);
+          meta.append(role, nameEl);
+          textEl = document.createElement('div');
+          textEl.className = 'tl-text';
+          line.append(meta, textEl);
+          transcript.appendChild(line);
+          lineCounter++;
+          lineCount.textContent = lineCounter + (lineCounter === 1 ? ' line' : ' lines');
+        }
       }
-      transcript.appendChild(line);
+
+      textEl = textEl || line.querySelector('.tl-text');
+      const wasFinal = line.dataset.final === 'true';
+      const wasPending = !wasFinal;
+      if (isFinal && wasFinal) {
+        textEl.textContent = `${textEl.textContent} ${spokenText}`.trim();
+      } else {
+        textEl.textContent = spokenText;
+      }
+      line.dataset.speakerKey = speakerKey;
+      line.dataset.final = String(isFinal);
+
+      if (isFinal && Number.isInteger(options.segmentIndex)) {
+        // Keep the backend segment index when consecutive utterances are
+        // merged into the same visible line.
+        if (!line.dataset.segmentIndex || wasPending) {
+          line.dataset.segmentIndex = String(options.segmentIndex);
+        }
+        let editButton = line.querySelector('.tl-edit');
+        if (!editButton) {
+          editButton = document.createElement('button');
+          editButton.type = 'button';
+          editButton.className = 'tl-edit';
+          editButton.innerHTML = icon('edit');
+          editButton.title = 'Edit transcript line';
+          editButton.setAttribute('aria-label', 'Edit transcript line');
+          line.appendChild(editButton);
+        }
+        editButton.disabled = isRecording;
+        editButton.onclick = () => enterTranscriptEdit(
+          line, textEl, editButton, Number(line.dataset.segmentIndex)
+        );
+        line.ondblclick = () => enterTranscriptEdit(
+          line, textEl, editButton, Number(line.dataset.segmentIndex)
+        );
+      }
+
+      liveTranscriptLine = isFinal ? null : line;
       transcript.scrollTop = transcript.scrollHeight;
+      return isFinal && wasPending;
     }
 
     function setTranscriptEditingEnabled(enabled) {
@@ -1280,6 +1314,7 @@
         emptyTranscript.hidden = false;
         lineCounter = 0;
         pendingSegmentCount = 0;
+        liveTranscriptLine = null;
         lineCount.textContent = '0 lines';
         sessionNameInput.value = '';
         setStatus(`Session "${session.name}" created successfully.`, 'success');
@@ -1299,6 +1334,7 @@
       transcript.replaceChildren(emptyTranscript);
       lineCounter = 0;
       pendingSegmentCount = 0;
+      liveTranscriptLine = null;
       lineCount.textContent = '0 lines';
       emptyTranscript.hidden = !(item.segments || []).length;
       (item.segments || []).forEach((seg, segmentIndex) => {
@@ -1306,7 +1342,7 @@
           name: seg.name || seg.speaker || 'All Speakers',
           role: seg.role || '',
           color: SPEAKER_COLORS[0]
-        }, { final: true, segmentIndex });
+        }, { final: true, mergeSameSpeaker: false, segmentIndex });
       });
       const savedPause = pausedSession();
       if (savedPause?.id === item.id) {
@@ -1448,8 +1484,10 @@
         const a = document.createElement('a');
         a.href = url;
         a.download = `${currentSession.name || 'courtscribe-transcript'}.pdf`;
+        document.body.appendChild(a);
         a.click();
-        URL.revokeObjectURL(url);
+        a.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
         setStatus('Transcript PDF downloaded successfully.', 'success');
       } catch (err) {
         setStatus(err.message || 'Could not export the PDF.', 'error');
@@ -1477,6 +1515,53 @@
     }
 
     /* ─────────── Recording ─────────── */
+    async function requestMicrophone() {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('Microphone access is unavailable. Open CourtScribe from localhost or HTTPS.');
+      }
+
+      let settled = false;
+      const request = navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: { ideal: 1 },
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+      request.then(stream => {
+        if (settled) stream.getTracks().forEach(track => track.stop());
+      }, () => {});
+      let timeoutId;
+      const timeout = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(
+          'Microphone permission did not finish. Check the browser permission prompt and allow microphone access for this site.'
+        )), 15000);
+      });
+      try {
+        return await Promise.race([request, timeout]);
+      } finally {
+        settled = true;
+        clearTimeout(timeoutId);
+      }
+    }
+
+    function microphoneError(error) {
+      if (error?.name === 'NotAllowedError' || error?.name === 'PermissionDeniedError') {
+        return 'Microphone access was denied. Allow microphone access in the browser address-bar settings, then try again.';
+      }
+      if (error?.name === 'NotFoundError' || error?.name === 'DevicesNotFoundError') {
+        return 'No microphone was found. Connect a microphone and try again.';
+      }
+      if (error?.name === 'NotReadableError' || error?.name === 'TrackStartError') {
+        return 'The microphone is busy or unavailable. Close other apps using it and try again.';
+      }
+      if (error?.name === 'SecurityError') {
+        return 'Microphone access requires HTTPS or localhost. Serve the page from a local web server.';
+      }
+      return error?.message || 'Could not access the microphone.';
+    }
+
     async function startRecording() {
       if (!currentSession) throw new Error('Create or select a session first.');
       if (isRecording) { isPushToTalk = true; setStatus('Listening…', 'live'); return; }
@@ -1484,77 +1569,98 @@
         throw new Error('Microphone access requires HTTPS or localhost.');
       }
       micStatusText.textContent = 'Microphone: Requesting…';
-      mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      micStatusText.innerHTML = `Microphone: Active ${icon('recording')}`;
+      try {
+        mediaStream = await requestMicrophone();
+        micStatusText.innerHTML = `Microphone: Active ${icon('recording')}`;
 
-      socket = new WebSocket(websocketUrl());
-      socket.binaryType = 'arraybuffer';
-      await new Promise((resolve, reject) => {
-        socket.addEventListener('open', resolve, { once: true });
-        socket.addEventListener('error', () => reject(new Error('Could not connect to the backend.')), { once: true });
-      });
+        socket = new WebSocket(websocketUrl());
+        socket.binaryType = 'arraybuffer';
+        await new Promise((resolve, reject) => {
+          const timeoutId = setTimeout(() => reject(new Error(
+            'The transcription backend did not respond. Make sure the API is running on port 8000.'
+          )), 15000);
+          socket.addEventListener('open', () => {
+            clearTimeout(timeoutId);
+            resolve();
+          }, { once: true });
+          socket.addEventListener('error', () => {
+            clearTimeout(timeoutId);
+            reject(new Error('Could not connect to the backend.'));
+          }, { once: true });
+        });
 
-      socket.send(JSON.stringify({
-        type: 'speaker',
-        name: selectedSpeaker().name,
-        role: selectedSpeaker().role
-      }));
+        socket.send(JSON.stringify({
+          type: 'speaker',
+          name: selectedSpeaker().name,
+          role: selectedSpeaker().role
+        }));
 
-      audioContext = new AudioContext();
-      source    = audioContext.createMediaStreamSource(mediaStream);
-      processor = audioContext.createScriptProcessor(4096, 1, 1);
-      processor.onaudioprocess = ev => {
-        if (!isPushToTalk || socket.readyState !== WebSocket.OPEN) return;
-        const pcm = downsampleToPcm(ev.inputBuffer.getChannelData(0), audioContext.sampleRate, 16000);
-        socket.send(pcm.buffer);
-      };
-      source.connect(processor);
-      processor.connect(audioContext.destination);
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        await audioContext.resume();
+        source    = audioContext.createMediaStreamSource(mediaStream);
+        processor = audioContext.createScriptProcessor(4096, 1, 1);
+        processor.onaudioprocess = ev => {
+          if (!isPushToTalk || socket.readyState !== WebSocket.OPEN) return;
+          const pcm = downsampleToPcm(ev.inputBuffer.getChannelData(0), audioContext.sampleRate, 16000);
+          socket.send(pcm.buffer);
+        };
+        source.connect(processor);
+        processor.connect(audioContext.destination);
 
-      socket.onmessage = ev => {
-        try {
-          const msg = JSON.parse(ev.data);
-          if (msg.type === 'transcript') {
-            const segmentIndex = (currentSession?.segments || []).length + pendingSegmentCount;
-            appendTranscript(msg.text, {
-              name: msg.speaker || selectedSpeaker().name,
-              role: msg.role   || selectedSpeaker().role || '',
-              color: selectedSpeaker().color
-            }, {
-              final: msg.final === true,
-              segmentIndex
-            });
-            if (String(msg.text || '').trim()) pendingSegmentCount++;
-          }
-          if (msg.type === 'error')  setStatus(msg.message || 'Transcription error.', 'error');
-          if (msg.type === 'saved') {
-            exportPdfButton.disabled = false;
-            if (stopReason === 'pause') {
-              const savedPause = pausedSession();
-              const pausedAt = savedPause?.pausedAt
-                ? new Date(savedPause.pausedAt).toLocaleTimeString('en-IN')
-                : 'now';
-              setStatus(`Session paused at ${pausedAt}.`, 'info');
-            } else {
-              setStatus('Recording and transcript PDF saved.', 'success');
+        socket.onmessage = ev => {
+          try {
+            const msg = JSON.parse(ev.data);
+            if (msg.type === 'transcript') {
+              const segmentIndex = (currentSession?.segments || []).length + pendingSegmentCount;
+              const isFinal = msg.final === true;
+              const createdSegment = appendTranscript(msg.text, {
+                name: msg.speaker || selectedSpeaker().name,
+                role: msg.role   || selectedSpeaker().role || '',
+                color: selectedSpeaker().color
+              }, {
+                final: isFinal,
+                segmentIndex
+              });
+              if (createdSegment) pendingSegmentCount++;
             }
-            loadLibrary();
-          }
-        } catch { setStatus('Invalid message from backend.', 'error'); }
-      };
+            if (msg.type === 'error')  setStatus(msg.message || 'Transcription error.', 'error');
+            if (msg.type === 'saved') {
+              exportPdfButton.disabled = false;
+              if (stopReason === 'pause') {
+                const savedPause = pausedSession();
+                const pausedAt = savedPause?.pausedAt
+                  ? new Date(savedPause.pausedAt).toLocaleTimeString('en-IN')
+                  : 'now';
+                setStatus(`Session paused at ${pausedAt}.`, 'info');
+              } else {
+                setStatus('Recording and transcript PDF saved.', 'success');
+              }
+              loadLibrary();
+            }
+          } catch { setStatus('Invalid message from backend.', 'error'); }
+        };
 
-      socket.onclose = () => { if (isRecording) endSession(); };
+        socket.onclose = () => { if (isRecording) endSession(); };
 
-      isRecording   = true;
-      isPushToTalk  = true;
-      setTranscriptEditingEnabled(false);
-      stopReason = 'end';
-      startSessionTimer();
-      endSessionButton.disabled  = false;
-      pauseSessionButton.disabled = false;
-      recordButton.classList.add('speaking');
-      recordZone.classList.add('is-recording');
-      setStatus('Listening… release to pause.', 'live');
+        isRecording   = true;
+        isPushToTalk  = true;
+        emptyTranscript.hidden = true;
+        setTranscriptEditingEnabled(false);
+        stopReason = 'end';
+        startSessionTimer();
+        endSessionButton.disabled  = false;
+        pauseSessionButton.disabled = false;
+        recordButton.classList.add('speaking');
+        recordZone.classList.add('is-recording');
+        setStatus('Listening… release to pause.', 'live');
+      } catch (error) {
+        mediaStream?.getTracks().forEach(track => track.stop());
+        mediaStream = null;
+        if (socket && socket.readyState < WebSocket.CLOSING) socket.close();
+        socket = null;
+        micStatusText.textContent = 'Microphone: —';
+        throw new Error(microphoneError(error));
+      }
     }
 
     function stopSpeaking() {

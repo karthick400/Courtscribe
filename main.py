@@ -26,7 +26,9 @@ except ImportError:  # pragma: no cover - reported when the application starts
     WebSocketException = RuntimeError
 
 
-load_dotenv()
+REPOSITORY_DIR = Path(__file__).resolve().parent
+load_dotenv(REPOSITORY_DIR / "backend" / ".env")
+load_dotenv(REPOSITORY_DIR / ".env")
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger(__name__)
 
@@ -141,6 +143,24 @@ def _write_wav(path: Path, audio: bytes) -> None:
         recording.writeframes(audio)
 
 
+def _merge_adjacent_segments(
+    segments: list[TranscriptSegment],
+) -> list[TranscriptSegment]:
+    merged: list[TranscriptSegment] = []
+    for segment in segments:
+        if (
+            merged
+            and merged[-1].speaker == segment.speaker
+            and merged[-1].speakerId == segment.speakerId
+            and merged[-1].role == segment.role
+            and merged[-1].name == segment.name
+        ):
+            merged[-1].text = f"{merged[-1].text} {segment.text}".strip()
+        else:
+            merged.append(segment)
+    return merged
+
+
 def _create_session(name: str) -> dict[str, Any]:
     display_name = _safe_name(name, "session")
     created_at = datetime.now(timezone.utc)
@@ -187,7 +207,7 @@ def _save_recording(
         TranscriptSegment(**segment)
         for segment in existing_metadata.get("segments", [])
     ]
-    combined_segments = existing_segments + segments
+    combined_segments = _merge_adjacent_segments(existing_segments + segments)
     pdf_request = PdfExportRequest(
         title=display_name,
         segments=combined_segments,
@@ -343,7 +363,8 @@ async def transcribe(websocket: WebSocket) -> None:
                     payload = _message_payload(message)
                     if payload.get("type") == "transcript":
                         text = payload.get("text", payload.get("transcript", ""))
-                        if text:
+                        is_final = payload.get("final", True) is True
+                        if text and is_final:
                             segments.append(
                                 TranscriptSegment(
                                     speaker=current_speaker["name"],
@@ -358,7 +379,7 @@ async def transcribe(websocket: WebSocket) -> None:
                                 "text": text,
                                 "speaker": current_speaker["name"],
                                 "role": current_speaker["role"],
-                                "final": payload.get("final", True),
+                                "final": is_final,
                             }
                         )
                     elif payload.get("type") == "error":
@@ -433,7 +454,10 @@ async def export_to_desktop(request: DesktopExportRequest) -> dict[str, str]:
     content = (
         _pdf_content(pdf_request)
         if request.format == "pdf"
-        else pdf_request.transcript.encode("utf-8")
+        else (
+            pdf_request.transcript
+            or "\n".join(segment.text for segment in pdf_request.segments)
+        ).encode("utf-8")
     )
     try:
         destination.write_bytes(content)

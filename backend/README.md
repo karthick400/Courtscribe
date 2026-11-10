@@ -39,7 +39,8 @@ API:
 .\court\Scripts\uvicorn.exe main:app --reload
 ```
 
-Set `gnaniAPI=<your-api-key>` in `.env`. The browser can connect to
+Set `gnaniAPI=<your-api-key>` in `backend\.env`. The API loads this file
+regardless of the directory from which Uvicorn is started. The browser can connect to
 `ws://localhost:8000/ws/transcribe` and send 16 kHz PCM binary frames. Gnani
 transcript events are forwarded as JSON messages with `type: "transcript"` and
 `text` fields. Send the text message `stop` to end the upstream stream.
